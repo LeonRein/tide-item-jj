@@ -11,19 +11,39 @@ function _tide_item_jj
                 if(immutable, label("node immutable", "◆")),
             ),
             change_id.shortest(4),
-            bookmarks,
         raw_escape_sequence("\x1b[0m"),
         )'
     )
 
-    # Get number of commits ahead & behind
-    set ahead (jj log --quiet --color never --no-pager --no-graph --ignore-working-copy -r '~empty() & ~::trunk()' -T 'change_id.short(4) ++ " "' | wc -w)
-    if test $ahead -eq 0
-        set -e ahead
-    end
-    set behind (jj log --quiet --color never --no-pager --no-graph --ignore-working-copy -r '@..trunk()' -T 'change_id.short(4) ++ " "' | wc -w)
-    if test $behind -eq 0
-        set -e behind
+    # Find nearest local bookmarks from @ and display them in parentheses.
+    set -l bookmark_names (command jj log --no-graph --ignore-working-copy \
+        -r 'heads((::@ | @::) & bookmarks())' \
+        -T 'local_bookmarks.map(|b| b.name()).join("\n")' 2>/dev/null)
+
+    set -l bookmark_display
+    set -l ahead
+    set -l behind
+    if test -n "$bookmark_names[1]"
+        set -l display_name (string join ", " $bookmark_names)
+        set bookmark_display "($display_name)"
+
+        # Query ahead/behind counts from remote tracking bookmark.
+        set -l bookmark_name $bookmark_names[1]
+        set -l tracking_info (command jj log --no-graph --ignore-working-copy \
+            -r "latest(remote_bookmarks($bookmark_name), 1)" \
+            -T 'remote_bookmarks.first().tracking_behind_count().lower() ++ "\n" ++ remote_bookmarks.first().tracking_ahead_count().lower()' 2>/dev/null)
+
+        # Intentionally flipped to show prompt-relative direction.
+        set -l ahead_count "$tracking_info[1]"
+        set -l behind_count "$tracking_info[2]"
+
+        if test -n "$ahead_count" -a "$ahead_count" -gt 0 2>/dev/null
+            set ahead $ahead_count
+        end
+
+        if test -n "$behind_count" -a "$behind_count" -gt 0 2>/dev/null
+            set behind $behind_count
+        end
     end
 
     # Get diffstats
@@ -37,7 +57,15 @@ function _tide_item_jj
         string match -r '^\?\?' $diffstats | count)"
 
     _tide_print_item jj $_tide_location_color$tide_git_icon' ' (echo -ns $wc_info
-        set_color $tide_jj_color_upstream; echo -ns ' ⇣'$behind ' ⇡'$ahead
+        if test -n "$bookmark_display"
+            echo -ns ' '$bookmark_display
+        end
+        if test -n "$behind"
+            set_color $tide_jj_color_upstream; echo -ns ' ⇣'$behind
+        end
+        if test -n "$ahead"
+            set_color $tide_jj_color_upstream; echo -ns ' ⇡'$ahead
+        end
         set_color $tide_jj_color_added; echo -ns ' +'$added
         set_color $tide_jj_color_copied; echo -ns ' &'$copied
         set_color $tide_jj_color_modified; echo -ns ' •'$modified
