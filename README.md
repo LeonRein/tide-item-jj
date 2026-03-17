@@ -12,15 +12,16 @@ A [Jujutsu](https://www.jj-vcs.dev/latest/) item for
 [Tide](https://github.com/IlanCosman/tide/), showing the following information
 about the current commit:
   - The current change_id (with the unique prefix highlighted)
-  - The nearest local bookmark(s), if any
+  - The local bookmark(s) affected by the current change, if any
+    - Up to the first three affected bookmarks are shown in the prompt
+  - Number of commits ahead and behind, summed across those displayed
+  bookmarks and their remote-tracking bookmarks
   - The following boolean properties:
     - conflicted
     - divergent
     - empty
     - hidden
     - immutable
-  - Number of commits ahead and behind relative to the nearest local bookmark
-  and its remote-tracking bookmark
   - The number of files that this commit has:
     - added
     - copied
@@ -38,8 +39,8 @@ fisher install lucasadelino/tide-item-jj
 ### Manually
 Download
 [these functions](https://github.com/lucasadelino/tide-item-jj/tree/main/functions)
-into your Fish `functions/` directory. Optionally, set the diffstat color
-variables shown [here](#diffstat-colors) somewhere in your config.
+into your Fish `functions/` directory. Optionally, set the item color
+variables shown [here](#item-colors) somewhere in your config.
 
 ## Usage
 This plugin is comprised of two functions.

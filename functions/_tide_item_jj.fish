@@ -15,34 +15,54 @@ function _tide_item_jj
         )'
     )
 
-    # Find nearest local bookmarks from @ and display them in parentheses.
+    # Prefer local bookmarks that are descendants of @.
+    # If none exist, fall back to the head of ancestor bookmarks of @.
+    # The extra trailing newline ensures names from multiple matched commits
+    # can be split into one flat Fish list.
     set -l bookmark_names (command jj log --no-graph --ignore-working-copy \
-        -r 'heads((::@ | @::) & bookmarks())' \
-        -T 'local_bookmarks.map(|b| b.name()).join("\n")' 2>/dev/null)
+        -r '@:: & bookmarks()' \
+        -T 'local_bookmarks.map(|b| b.name()).join("\n") ++ "\n"' 2>/dev/null)
+
+    if not test -n "$bookmark_names[1]"
+        set bookmark_names (command jj log --no-graph --ignore-working-copy \
+            -r 'heads(::@ & bookmarks())' \
+            -T 'local_bookmarks.map(|b| b.name()).join("\n") ++ "\n"' 2>/dev/null)
+    end
+
+    # Normalize command output into a clean list so join(", ") is reliable.
+    set bookmark_names (string split "\n" -- $bookmark_names)
+    set bookmark_names (string trim -- $bookmark_names)
+    set bookmark_names (string match -rv '^$' -- $bookmark_names)
 
     set -l bookmark_display
-    set -l ahead
-    set -l behind
+    set -l ahead_total 0
+    set -l behind_total 0
     if test -n "$bookmark_names[1]"
-        set -l display_name (string join ", " $bookmark_names)
+        # Show only the first three bookmarks to keep prompt width bounded.
+        set -l display_bookmarks $bookmark_names[1..3]
+        set -l display_name (string join ", " $display_bookmarks)
+        if test (count $bookmark_names) -gt 3
+            set display_name "$display_name, ..."
+        end
         set bookmark_display "($display_name)"
 
-        # Query ahead/behind counts from remote tracking bookmark.
-        set -l bookmark_name $bookmark_names[1]
-        set -l tracking_info (command jj log --no-graph --ignore-working-copy \
-            -r "latest(remote_bookmarks($bookmark_name), 1)" \
-            -T 'remote_bookmarks.first().tracking_behind_count().lower() ++ "\n" ++ remote_bookmarks.first().tracking_ahead_count().lower()' 2>/dev/null)
+        # Query and sum ahead/behind counts for the first three displayed bookmarks.
+        for bookmark_name in $display_bookmarks
+            set -l tracking_info (command jj log --no-graph --ignore-working-copy \
+                -r "latest(remote_bookmarks($bookmark_name), 1)" \
+                -T 'remote_bookmarks.first().tracking_behind_count().lower() ++ "\n" ++ remote_bookmarks.first().tracking_ahead_count().lower()' 2>/dev/null)
 
-        # Intentionally flipped to show prompt-relative direction.
-        set -l ahead_count "$tracking_info[1]"
-        set -l behind_count "$tracking_info[2]"
+            # Intentionally flipped to show prompt-relative direction.
+            set -l ahead_count "$tracking_info[1]"
+            set -l behind_count "$tracking_info[2]"
 
-        if test -n "$ahead_count" -a "$ahead_count" -gt 0 2>/dev/null
-            set ahead $ahead_count
-        end
+            if string match -qr '^[0-9]+$' -- "$ahead_count"
+                set ahead_total (math "$ahead_total + $ahead_count")
+            end
 
-        if test -n "$behind_count" -a "$behind_count" -gt 0 2>/dev/null
-            set behind $behind_count
+            if string match -qr '^[0-9]+$' -- "$behind_count"
+                set behind_total (math "$behind_total + $behind_count")
+            end
         end
     end
 
@@ -60,11 +80,11 @@ function _tide_item_jj
         if test -n "$bookmark_display"
             set_color $tide_jj_color_upstream; echo -ns ' '$bookmark_display
         end
-        if test -n "$behind"
-            set_color $tide_jj_color_upstream; echo -ns ' ⇣'$behind
+        if test $behind_total -gt 0
+            set_color $tide_jj_color_upstream; echo -ns ' ⇣'$behind_total
         end
-        if test -n "$ahead"
-            set_color $tide_jj_color_upstream; echo -ns ' ⇡'$ahead
+        if test $ahead_total -gt 0
+            set_color $tide_jj_color_upstream; echo -ns ' ⇡'$ahead_total
         end
         set_color $tide_jj_color_added; echo -ns ' +'$added
         set_color $tide_jj_color_copied; echo -ns ' &'$copied
