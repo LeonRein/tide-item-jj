@@ -63,10 +63,10 @@ set -U tide_left_prompt_items pwd vcs newline character
 (It should go without saying that if you're using `vcs`, you'll likely
 want to *not* use the default `git` item).
 
-### Diffstat colors
-Like Tide's `git` item, tide-item-jj uses several variables to color diffstats
+### Item colors
+Like Tide's `git` item, tide-item-jj uses several variables to color item parts
 in the prompt. Unlike Tide's `git`, however, tide-item-jj cannot set these
-variables by default. If you want your diffstats to be colored, you'll need to
+variables by default. If you want the item to be colored, you'll need to
 set the following variables:
 
   - tide_jj_color_upstream

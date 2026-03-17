@@ -58,7 +58,7 @@ function _tide_item_jj
 
     _tide_print_item jj $_tide_location_color$tide_git_icon' ' (echo -ns $wc_info
         if test -n "$bookmark_display"
-            echo -ns ' '$bookmark_display
+            set_color $tide_jj_color_upstream; echo -ns ' '$bookmark_display
         end
         if test -n "$behind"
             set_color $tide_jj_color_upstream; echo -ns ' ⇣'$behind
